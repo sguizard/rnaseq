@@ -50,6 +50,7 @@ include { BEDTOOLS_GENOMECOV as BEDTOOLS_GENOMECOV_FW          } from '../../mod
 include { BEDTOOLS_GENOMECOV as BEDTOOLS_GENOMECOV_REV         } from '../../modules/nf-core/bedtools/genomecov'
 include { SAMTOOLS_INDEX                                       } from '../../modules/nf-core/samtools/index'
 include { SAMTOOLS_SORT as SAMTOOLS_SORT_QUALIMAP              } from '../../modules/nf-core/samtools/sort'
+include { PIGZ_COMPRESS                                        } from '../../modules/nf-core/pigz/compress'
 
 //
 // SUBWORKFLOW: Consisting entirely of nf-core/modules
@@ -158,7 +159,31 @@ workflow RNASEQ {
 
     // Get inputs for FASTQ and BAM processing paths
 
-    ch_fastq = ch_input_branched.fastq
+    // Branch FASTQ inputs based on compression status
+    ch_input_branched.fastq
+        .branch { meta, reads ->
+            compressed: reads[0].name.endsWith('.gz')
+            uncompressed: true
+        }
+        .set { ch_fastq_branched }
+
+    //
+    // MODULE: Compress uncompressed FASTQ files with pigz
+    //
+    // Transpose to handle paired-end reads individually, then regroup
+    PIGZ_COMPRESS (
+        ch_fastq_branched.uncompressed
+            .transpose()
+    )
+    ch_versions = ch_versions.mix(PIGZ_COMPRESS.out.versions.first().ifEmpty(null))
+
+    // Regroup compressed files by sample and combine with already-compressed inputs
+    ch_fastq = ch_fastq_branched.compressed
+        .mix(
+            PIGZ_COMPRESS.out.archive
+                .groupTuple(sort: true)
+        )
+
     ch_genome_bam = ch_input_branched.bam.map { meta, genome_bam, _transcriptome_bam -> [ meta, genome_bam ] }.distinct()
     ch_transcriptome_bam = ch_input_branched.bam.map { meta, _genome_bam, transcriptome_bam -> [ meta, transcriptome_bam ] }.distinct()
 
