@@ -44,9 +44,9 @@ process HISAT2_ALIGN {
             $ss \\
             --summary-file ${prefix}.hisat2.summary.log \\
             --threads $task.cpus \\
+            --temp-directory ./tmp \\
             $seq_center \\
             $unaligned \\
-            --temp-directory ./tmp
             $args \\
             | samtools view -bS -F 4 -F 256 - > ${prefix}.bam
 
