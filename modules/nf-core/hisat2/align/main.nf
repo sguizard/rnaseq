@@ -68,6 +68,7 @@ process HISAT2_ALIGN {
             $ss \\
             --summary-file ${prefix}.hisat2.summary.log \\
             --threads $task.cpus \\
+            --temp-directory ./tmp \\
             $seq_center \\
             $unaligned \\
             --no-mixed \\
